@@ -253,6 +253,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Emotion-ditect-Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = need;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = Need;
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = Need;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -292,6 +296,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Emotion-ditect-Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = need;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = Need;
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = Need;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

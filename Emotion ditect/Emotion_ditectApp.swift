@@ -11,7 +11,8 @@ import SwiftUI
 struct Emotion_ditectApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            EmotionDetectionView()
         }
     }
 }
+
