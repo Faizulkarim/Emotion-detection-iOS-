@@ -17,8 +17,8 @@ struct EmotionDetectionView: View {
             VStack {
                 Spacer()
                 
-                // Face Emotion Display
-                Text("Face Emotion: \(viewModel.currentEmotion)")
+                // Face Emotion Display with Confidence
+                Text("Face Emotion: \(viewModel.currentEmotion) (\(Int(viewModel.emotionConfidence * 100))%)")
                     .font(.title)
                     .padding()
                     .background(Color.black.opacity(0.7))
@@ -73,8 +73,18 @@ struct EmotionDetectionView: View {
 @MainActor
 class ARViewModel: ObservableObject {
     @Published var currentEmotion: String = "No face detected"
+    @Published var emotionConfidence: Double = 0.0
     @Published var showAlert = false
     @Published var alertMessage = ""
+    
+    // Temporal smoothing
+    private let maxFrameHistory = 15
+    private var emotionHistory: [(emotion: String, confidence: Double)] = []
+    
+    private struct EmotionScore {
+        let emotion: String
+        let score: Double
+    }
     
     func updateEmotion(from faceAnchor: ARFaceAnchor) {
         let blendShapes = faceAnchor.blendShapes
@@ -92,6 +102,22 @@ class ARViewModel: ObservableObject {
         let eyeBlinkRightValue = blendShapes[.eyeBlinkRight]?.floatValue ?? 0
         let eyeSquintLeftValue = blendShapes[.eyeSquintLeft]?.floatValue ?? 0
         let eyeSquintRightValue = blendShapes[.eyeSquintRight]?.floatValue ?? 0
+        let noseSneerLeftValue = blendShapes[.noseSneerLeft]?.floatValue ?? 0
+        let noseSneerRightValue = blendShapes[.noseSneerRight]?.floatValue ?? 0
+        let cheekPuffValue = blendShapes[.cheekPuff]?.floatValue ?? 0
+        let tongueOutValue = blendShapes[.tongueOut]?.floatValue ?? 0
+        let mouthPuckerValue = blendShapes[.mouthPucker]?.floatValue ?? 0
+        let mouthFunnelValue = blendShapes[.mouthFunnel]?.floatValue ?? 0
+        let mouthLeftValue = blendShapes[.mouthLeft]?.floatValue ?? 0
+        let mouthRightValue = blendShapes[.mouthRight]?.floatValue ?? 0
+        let browDownLeftValue = blendShapes[.browDownLeft]?.floatValue ?? 0
+        let browDownRightValue = blendShapes[.browDownRight]?.floatValue ?? 0
+        let eyeWideLeftValue = blendShapes[.eyeWideLeft]?.floatValue ?? 0
+        let eyeWideRightValue = blendShapes[.eyeWideRight]?.floatValue ?? 0
+        
+        // Get head pose information
+        let headPose = faceAnchor.transform
+        let lookAtPoint = faceAnchor.lookAtPoint
         
         // Calculate average values for symmetrical features
         let averageSmile = (smileValue + smileRightValue) / 2
@@ -99,26 +125,229 @@ class ARViewModel: ObservableObject {
         let averageBrowOuterUp = (browOuterUpLeftValue + browOuterUpRightValue) / 2
         let averageEyeBlink = (eyeBlinkLeftValue + eyeBlinkRightValue) / 2
         let averageEyeSquint = (eyeSquintLeftValue + eyeSquintRightValue) / 2
+        let averageNoseSneer = (noseSneerLeftValue + noseSneerRightValue) / 2
+        let averageMouth = (mouthLeftValue + mouthRightValue) / 2
+        let averageBrowDown = (browDownLeftValue + browDownRightValue) / 2
+        let averageEyeWide = (eyeWideLeftValue + eyeWideRightValue) / 2
         
-        // Determine the emotion based on blend shape values with adjusted thresholds
-        if averageSmile > 0.4 && averageEyeSquint < 0.3 {
-            currentEmotion = "Happy"
-        } else if averageFrown > 0.4 && browInnerUpValue > 0.3 {
-            currentEmotion = "Angry"
-        } else if averageFrown > 0.4 && browInnerUpValue < 0.2 {
-            currentEmotion = "Sad"
-        } else if jawOpenValue > 0.4 && averageEyeBlink < 0.3 {
-            currentEmotion = "Surprised"
-        } else if averageEyeSquint > 0.4 && averageSmile < 0.2 {
-            currentEmotion = "Disgusted"
-        } else if averageBrowOuterUp > 0.4 && averageSmile < 0.2 {
-            currentEmotion = "Fearful"
-        } else if averageSmile > 0.2 || averageFrown > 0.2 || jawOpenValue > 0.2 || browInnerUpValue > 0.2 {
-            // If any significant expression is detected but doesn't match above patterns
-            currentEmotion = "Expressive"
+        // Calculate emotion scores with head pose consideration
+        var emotionScores: [EmotionScore] = []
+        
+        // Happy score calculation with head pose adjustment
+        let happyScore = calculateHappyScore(
+            smile: averageSmile,
+            eyeSquint: averageEyeSquint,
+            jawOpen: jawOpenValue,
+            cheekPuff: cheekPuffValue,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Happy", score: happyScore))
+        
+        // Angry score calculation with head pose adjustment
+        let angryScore = calculateAngryScore(
+            frown: averageFrown,
+            browInnerUp: browInnerUpValue,
+            eyeSquint: averageEyeSquint,
+            browDown: averageBrowDown,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Angry", score: angryScore))
+        
+        // Sad score calculation with head pose adjustment
+        let sadScore = calculateSadScore(
+            frown: averageFrown,
+            browInnerUp: browInnerUpValue,
+            smile: averageSmile,
+            mouthPucker: mouthPuckerValue,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Sad", score: sadScore))
+        
+        // Surprised score calculation with head pose adjustment
+        let surprisedScore = calculateSurprisedScore(
+            jawOpen: jawOpenValue,
+            eyeBlink: averageEyeBlink,
+            browOuterUp: averageBrowOuterUp,
+            eyeWide: averageEyeWide,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Surprised", score: surprisedScore))
+        
+        // Disgusted score calculation with head pose adjustment
+        let disgustedScore = calculateDisgustedScore(
+            eyeSquint: averageEyeSquint,
+            noseSneer: averageNoseSneer,
+            smile: averageSmile,
+            mouthFunnel: mouthFunnelValue,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Disgusted", score: disgustedScore))
+        
+        // Fearful score calculation with head pose adjustment
+        let fearfulScore = calculateFearfulScore(
+            browOuterUp: averageBrowOuterUp,
+            jawOpen: jawOpenValue,
+            smile: averageSmile,
+            eyeWide: averageEyeWide,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Fearful", score: fearfulScore))
+        
+        // Neutral score calculation with head pose adjustment
+        let neutralScore = calculateNeutralScore(
+            smile: averageSmile,
+            frown: averageFrown,
+            jawOpen: jawOpenValue,
+            browInnerUp: browInnerUpValue,
+            mouth: averageMouth,
+            headPose: headPose
+        )
+        emotionScores.append(EmotionScore(emotion: "Neutral", score: neutralScore))
+        
+        // Find the emotion with the highest confidence score
+        if let highestScore = emotionScores.max(by: { $0.score < $1.score }) {
+            // Add to history
+            emotionHistory.append((emotion: highestScore.emotion, confidence: highestScore.score))
+            if emotionHistory.count > maxFrameHistory {
+                emotionHistory.removeFirst()
+            }
+            
+            // Calculate temporal average
+            let averagedEmotion = calculateTemporalAverage()
+            currentEmotion = averagedEmotion.emotion
+            emotionConfidence = averagedEmotion.confidence
         } else {
             currentEmotion = "Neutral"
+            emotionConfidence = 0.0
         }
+    }
+    
+    private func calculateTemporalAverage() -> (emotion: String, confidence: Double) {
+        guard !emotionHistory.isEmpty else {
+            return ("Neutral", 0.0)
+        }
+        
+        // Group emotions and calculate weighted average
+        var emotionScores: [String: Double] = [:]
+        var totalWeight: Double = 0
+        
+        for (index, entry) in emotionHistory.enumerated() {
+            let weight = Double(index + 1) / Double(emotionHistory.count) // More recent frames have higher weight
+            emotionScores[entry.emotion, default: 0] += entry.confidence * weight
+            totalWeight += weight
+        }
+        
+        // Find the emotion with highest weighted average
+        let averagedEmotion = emotionScores.max(by: { $0.value < $1.value })
+        return (emotion: averagedEmotion?.key ?? "Neutral",
+                confidence: (averagedEmotion?.value ?? 0) / totalWeight)
+    }
+    
+    private func adjustScoreForHeadPose(_ score: Double, headPose: simd_float4x4) -> Double {
+        // Extract rotation from head pose matrix
+        let rotation = simd_quaternion(headPose)
+        
+        // Convert quaternion to Euler angles
+        let angles = quaternionToEulerAngles(rotation)
+        
+        // Adjust score based on head orientation
+        // Penalize extreme angles
+        let pitchPenalty = abs(angles.x) > 0.5 ? 0.2 : 0
+        let yawPenalty = abs(angles.y) > 0.5 ? 0.2 : 0
+        let rollPenalty = abs(angles.z) > 0.5 ? 0.1 : 0
+        
+        return max(0, min(1, score * (1 - pitchPenalty - yawPenalty - rollPenalty)))
+    }
+    
+    private func quaternionToEulerAngles(_ q: simd_quatf) -> SIMD3<Float> {
+        // Convert quaternion to Euler angles (in radians)
+        // Using the standard aerospace sequence (ZYX)
+        let qx = q.vector.x
+        let qy = q.vector.y
+        let qz = q.vector.z
+        let qw = q.vector.w
+        
+        // Roll (x-axis rotation)
+        let sinr_cosp = 2 * (qw * qx + qy * qz)
+        let cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
+        let roll = atan2(sinr_cosp, cosr_cosp)
+        
+        // Pitch (y-axis rotation)
+        let sinp = 2 * (qw * qy - qz * qx)
+        let pitch: Float
+        if abs(sinp) >= 1 {
+            pitch = copysign(.pi / 2, sinp) // Use 90 degrees if out of range
+        } else {
+            pitch = asin(sinp)
+        }
+        
+        // Yaw (z-axis rotation)
+        let siny_cosp = 2 * (qw * qz + qx * qy)
+        let cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
+        let yaw = atan2(siny_cosp, cosy_cosp)
+        
+        return SIMD3<Float>(roll, pitch, yaw)
+    }
+    
+    private func calculateHappyScore(smile: Float, eyeSquint: Float, jawOpen: Float, cheekPuff: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(smile) * 1.2
+        let eyeSquintPenalty = Double(eyeSquint) * 0.2
+        let jawOpenPenalty = Double(jawOpen) * 0.1
+        let cheekPuffBonus = Double(cheekPuff) * 0.3
+        let rawScore = max(0, min(1, baseScore - eyeSquintPenalty - jawOpenPenalty + cheekPuffBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateAngryScore(frown: Float, browInnerUp: Float, eyeSquint: Float, browDown: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(frown) * 1.2
+        let browBonus = Double(browInnerUp) * 0.4
+        let eyeSquintBonus = Double(eyeSquint) * 0.3
+        let browDownBonus = Double(browDown) * 0.3
+        let rawScore = max(0, min(1, baseScore + browBonus + eyeSquintBonus + browDownBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateSadScore(frown: Float, browInnerUp: Float, smile: Float, mouthPucker: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(frown) * 1.2
+        let browPenalty = Double(browInnerUp) * 0.2
+        let smilePenalty = Double(smile) * 0.3
+        let mouthPuckerBonus = Double(mouthPucker) * 0.3
+        let rawScore = max(0, min(1, baseScore - browPenalty - smilePenalty + mouthPuckerBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateSurprisedScore(jawOpen: Float, eyeBlink: Float, browOuterUp: Float, eyeWide: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(jawOpen) * 1.2
+        let browBonus = Double(browOuterUp) * 0.4
+        let eyeBlinkPenalty = Double(eyeBlink) * 0.1
+        let eyeWideBonus = Double(eyeWide) * 0.3
+        let rawScore = max(0, min(1, baseScore + browBonus - eyeBlinkPenalty + eyeWideBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateDisgustedScore(eyeSquint: Float, noseSneer: Float, smile: Float, mouthFunnel: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(eyeSquint) * 1.2
+        let noseSneerBonus = Double(noseSneer) * 0.4
+        let smilePenalty = Double(smile) * 0.3
+        let mouthFunnelBonus = Double(mouthFunnel) * 0.3
+        let rawScore = max(0, min(1, baseScore + noseSneerBonus - smilePenalty + mouthFunnelBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateFearfulScore(browOuterUp: Float, jawOpen: Float, smile: Float, eyeWide: Float, headPose: simd_float4x4) -> Double {
+        let baseScore = Double(browOuterUp) * 1.2
+        let jawOpenBonus = Double(jawOpen) * 0.3
+        let smilePenalty = Double(smile) * 0.3
+        let eyeWideBonus = Double(eyeWide) * 0.3
+        let rawScore = max(0, min(1, baseScore + jawOpenBonus - smilePenalty + eyeWideBonus))
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
+    }
+    
+    private func calculateNeutralScore(smile: Float, frown: Float, jawOpen: Float, browInnerUp: Float, mouth: Float, headPose: simd_float4x4) -> Double {
+        let maxExpression = max(smile, max(frown, max(jawOpen, max(browInnerUp, mouth))))
+        let neutralScore = 1.0 - Double(maxExpression)
+        let rawScore = maxExpression < 0.1 ? neutralScore : neutralScore * 0.5
+        return adjustScoreForHeadPose(rawScore, headPose: headPose)
     }
 }
 

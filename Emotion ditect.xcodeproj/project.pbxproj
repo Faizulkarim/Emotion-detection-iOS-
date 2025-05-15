@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6CEC70DA2DD5F0A200CC2EB7 /* ARKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6CEC70D92DD5F0A200CC2EB7 /* ARKit.framework */; platformFilters = (ios, xros, ); };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		6CEC70BF2DD5C51F00CC2EB7 /* Emotion ditect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Emotion ditect.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6CEC70D92DD5F0A200CC2EB7 /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.4.sdk/System/Library/Frameworks/ARKit.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6CEC70DA2DD5F0A200CC2EB7 /* ARKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +39,7 @@
 			isa = PBXGroup;
 			children = (
 				6CEC70C12DD5C51F00CC2EB7 /* Emotion ditect */,
+				6CEC70D82DD5F0A100CC2EB7 /* Frameworks */,
 				6CEC70C02DD5C51F00CC2EB7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +50,14 @@
 				6CEC70BF2DD5C51F00CC2EB7 /* Emotion ditect.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6CEC70D82DD5F0A100CC2EB7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6CEC70D92DD5F0A200CC2EB7 /* ARKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
